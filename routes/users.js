@@ -1,19 +1,27 @@
+// server/routes/users.js
 const express = require('express');
 const bcrypt = require('bcrypt');
+const upload = require('../utils/multerConfig'); // config ที่รองรับ fieldname 'avatar'
 const auth = require('../middleware/auth');
 const User = require('../models/User');
+
 const router = express.Router();
 
-// Update profile
-router.put('/', auth, async (req, res) => {
+// PUT /api/users  —  อัปเดตโปรไฟล์ + รูปโปรไฟล์ + skills
+router.put('/', auth, upload.single('avatar'), async (req, res, next) => {
   try {
-    const { name, password } = req.body;
-    if (name) req.user.name = name;
-    if (password) req.user.password = await bcrypt.hash(password, 10);
-    await req.user.save();
-    res.json({ message: 'Profile updated' });
+    const { name, password, skills } = req.body;
+    const update = {};
+    if (name) update.name = name;
+    if (password) update.password = await bcrypt.hash(password, 12);
+    if (skills) update.skills = JSON.parse(skills);
+    if (req.file) {
+      update.avatar = `/uploads/profile/${req.file.filename}`;
+    }
+    const user = await User.findByIdAndUpdate(req.user._id, update, { new: true });
+    res.json({ message: 'Profile updated', user });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
