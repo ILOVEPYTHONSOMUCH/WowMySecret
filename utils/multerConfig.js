@@ -1,3 +1,4 @@
+// utils/multerConfig.js
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
@@ -5,30 +6,53 @@ const path = require('path');
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     let folder = 'uploads/others';
-    if (file.fieldname === 'avatar') folder = 'uploads/profile';
-    else if (file.fieldname === 'quizImage') folder = 'uploads/quizzes';
-    else if (file.fieldname.startsWith('questionImage_')) folder = 'uploads/quizzes/questions';
-    else if (file.fieldname === 'video') folder = 'uploads/videos';
-    else if (file.fieldname === 'image') folder = 'uploads/posts';
-
-    if (!fs.existsSync(folder)) {
-      fs.mkdirSync(folder, { recursive: true });
+    if (file.fieldname === 'video') {
+      if (req.baseUrl && req.baseUrl.includes('/lessons')) {
+        folder = 'uploads/lessons';
+      } else {
+        folder = 'uploads/videos';
+      }
     }
-
+    switch (file.fieldname) {
+      case 'avatar':       folder = 'uploads/profile'; break;
+      case 'quizImage':    folder = 'uploads/quizzes'; break;
+      case 'image':        folder = 'uploads/posts'; break;
+    }
+    if (file.fieldname.startsWith('questionImage_')) {
+      folder = 'uploads/quizzes/questions';
+    }
+    fs.mkdirSync(folder, { recursive: true });
     cb(null, folder);
   },
   filename: (req, file, cb) => {
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-    cb(null, `${Date.now()}-${safeName}`);
+    const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    cb(null, `${Date.now()}-${safe}`);
   }
 });
 
+const ALLOWED_MIME = new Set([
+  'image/png','image/jpg','image/jpeg','image/gif',
+  'video/mp4','video/mpeg','video/quicktime','video/webm'
+]);
+
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
-    cb(null, true);
-  } else {
-    cb(new Error('ประเภทไฟล์ไม่ถูกต้อง'), false);
+  console.log('[Multer] field:', file.fieldname, 'mimetype:', file.mimetype);
+  if (ALLOWED_MIME.has(file.mimetype)) {
+    return cb(null, true);
   }
+  // สำรองด้วย extension ถ้า browser ส่ง mimetype ผิด
+  const ext = path.extname(file.originalname).toLowerCase();
+  const extMap = {
+    '.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg',
+    '.gif':'image/gif','.mp4':'video/mp4','.mov':'video/quicktime','.webm':'video/webm'
+  };
+  if (extMap[ext]) {
+    console.warn(`[Multer] Warning: treat ${file.originalname} as ${extMap[ext]}`);
+    return cb(null, true);
+  }
+  const err = new multer.MulterError('LIMIT_UNEXPECTED_FILE', file.fieldname);
+  err.message = `ประเภทไฟล์ไม่ถูกต้อง: ${file.originalname}`;
+  cb(err, false);
 };
 
 module.exports = multer({

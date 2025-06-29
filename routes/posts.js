@@ -23,10 +23,7 @@ router.post(
   async (req, res, next) => {
     try {
       const { title, content } = req.body;
-
-      if (!title || !content) {
-        return res.status(400).json({ message: 'กรุณาระบุ title และ content' });
-      }
+      if (!title || !content) return res.status(400).json({ message: 'กรุณาระบุ title และ content' });
 
       const imageFile = req.files?.image?.[0];
       const videoFile = req.files?.video?.[0];

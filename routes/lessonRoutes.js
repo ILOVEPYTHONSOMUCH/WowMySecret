@@ -22,7 +22,7 @@ router.post('/', auth, upload.single('video'), async (req, res, next) => {
     }
     let videoUrl = null;
     if (req.file) {
-      videoUrl = `/uploads/videos/${req.file.filename}`;
+      videoUrl = `/uploads/lessons/${req.file.filename}`;
     }
     const lesson = new Lesson({
       title,
