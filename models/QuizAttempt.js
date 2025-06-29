@@ -1,0 +1,3 @@
+const mongoose = require('mongoose');
+const attemptSchema = new mongoose.Schema({ quiz: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz' }, user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, answers: [{ questionId: mongoose.Schema.Types.ObjectId, given: String }], score: Number, takenAt: { type: Date, default: Date.now }});
+module.exports = mongoose.model('QuizAttempt', attemptSchema);
