@@ -1,31 +1,63 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const Post = require('../models/Post');
+const Post = require('../models/post');
+const Comment = require('../models/comment');
 const auth = require('../middleware/auth');
+const { uploadPostMedia, uploadComment } = require('../middleware/upload');
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/posts');
-  },
-  filename: function (req, file, cb) {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  }
-});
-const upload = multer({ storage });
-
-router.post('/', auth, upload.single('image'), async (req, res) => {
+// Create post
+router.post('/', auth, uploadPostMedia.single('media'), async (req, res) => {
   try {
+    const { title, content, teachSubjects, learnSubjects } = req.body;
     const post = new Post({
-      author: req.user._id,
-      content: req.body.content,
-      image: req.file ? `/uploads/posts/${req.file.filename}` : null
+      title,
+      content,
+      media: req.file ? req.file.path : undefined,
+      teachSubjects: teachSubjects ? teachSubjects.split(',') : [],
+      learnSubjects: learnSubjects ? learnSubjects.split(',') : [],
+      owner: req.user._id
     });
     await post.save();
-    res.json(post);
+    res.json({ message: 'Post created', postId: post._id });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(400).json({ message: 'Post creation failed', error: err.message });
   }
+});
+
+// Get all posts
+router.get('/', auth, async (req, res) => {
+  const posts = await Post.find().populate('owner', 'username');
+  res.json(posts);
+});
+
+// Get single post
+router.get('/:postId', auth, async (req, res) => {
+  const post = await Post.findById(req.params.postId).populate('owner', 'username');
+  if (!post) return res.status(404).json({ message: 'Post not found' });
+  res.json(post);
+});
+
+// Add comment to post
+router.post('/:postId/comments', auth, uploadComment.single('media'), async (req, res) => {
+  try {
+    const { msg } = req.body;
+    const comment = new Comment({
+      msg,
+      media: req.file ? req.file.path : undefined,
+      owner: req.user._id,
+      post: req.params.postId
+    });
+    await comment.save();
+    res.json({ message: 'Comment added', commentId: comment._id });
+  } catch (err) {
+    res.status(400).json({ message: 'Comment failed', error: err.message });
+  }
+});
+
+// Get comments for a post
+router.get('/:postId/comments', auth, async (req, res) => {
+  const comments = await Comment.find({ post: req.params.postId }).populate('owner', 'username');
+  res.json(comments);
 });
 
 module.exports = router;

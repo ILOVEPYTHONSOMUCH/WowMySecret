@@ -1,61 +1,57 @@
 const express = require('express');
-const multer = require('../utils/multerConfig');
-const { customAlphabet } = require('nanoid');
-const Chat = require('../models/Chat');
-const auth = require('../middleware/auth');
-const nanoid = customAlphabet('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', 8);
-
 const router = express.Router();
+const Chat = require('../models/chat');
+const auth = require('../middleware/auth');
+const { uploadChat } = require('../middleware/upload');
 
-/**
- * POST /api/chat/send
- * ส่งข้อความระหว่างผู้ใช้
- * Fields: to (userId), message (string), image/video (file optional)
- */
-router.post('/send', auth, multer.fields([
-  { name: 'image', maxCount: 1 },
-  { name: 'video', maxCount: 1 }
-]), async (req, res, next) => {
+// Send message (create or update chat)
+router.post('/', auth, uploadChat.single('media'), async (req, res) => {
   try {
-    const { to, message } = req.body;
-    if (!to || !message) return res.status(400).json({ message: 'to และ message ต้องระบุ' });
-
-    const chat = new Chat({
-      chatId: nanoid(),
-      from: req.user._id,
+    const { to, text } = req.body;
+    const from = req.user._id;
+    // Find existing chat between two users
+    let chat = await Chat.findOne({ participants: { $all: [from, to] } });
+    if (!chat) {
+      chat = new Chat({ participants: [from, to], messages: [] });
+    }
+    const message = {
+      from,
       to,
-      message,
-      media: {
-        image: req.files.image?.[0]?.filename ? `/uploads/posts/${req.files.image[0].filename}` : null,
-        video: req.files.video?.[0]?.filename ? `/uploads/videos/${req.files.video[0].filename}` : null
-      }
-    });
+      text,
+      media: req.file ? req.file.path : undefined
+    };
+    chat.messages.push(message);
     await chat.save();
-    res.status(201).json(chat);
+    res.json({ message: 'Message sent' });
   } catch (err) {
-    next(err);
+    res.status(400).json({ message: 'Message failed', error: err.message });
   }
 });
 
-/**
- * GET /api/chat/conversations/:userId
- * ดึง chat ระหว่างผู้ใช้ตอนนี้และ userId
- */
-router.get('/conversations/:userId', auth, async (req, res, next) => {
-  try {
-    const { userId } = req.params;
-    const chats = await Chat.find({
-      $or: [
-        { from: req.user._id, to: userId },
-        { from: userId, to: req.user._id }
-      ]
-    }).sort('createdAt');
+// Get chat list (latest message preview)
+router.get('/', auth, async (req, res) => {
+  const userId = req.user._id;
+  const chats = await Chat.find({ participants: userId }).populate('participants', 'username');
+  // Map to preview
+  const previews = chats.map(chat => {
+    const other = chat.participants.find(p => !p._id.equals(userId));
+    const lastMsg = chat.messages[chat.messages.length - 1];
+    return {
+      chatId: chat._id,
+      with: other ? other.username : null,
+      lastMessage: lastMsg ? lastMsg.text : '',
+      lastMedia: lastMsg ? lastMsg.media : null,
+      timestamp: lastMsg ? lastMsg.createdAt : chat.createdAt
+    };
+  });
+  res.json(previews);
+});
 
-    const lastMessage = chats.length ? chats[chats.length - 1].message : null;
-    res.json({ chats, lastMessage });
-  } catch (err) {
-    next(err);
-  }
+// Get messages in a chat
+router.get('/:chatId', auth, async (req, res) => {
+  const chat = await Chat.findById(req.params.chatId).populate('messages.from messages.to', 'username');
+  if (!chat) return res.status(404).json({ message: 'Chat not found' });
+  res.json(chat.messages);
 });
 
 module.exports = router;

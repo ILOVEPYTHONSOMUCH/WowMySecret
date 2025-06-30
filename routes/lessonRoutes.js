@@ -1,75 +1,67 @@
-// server/routes/lessonRoutes.js
 const express = require('express');
-const auth = require('../middleware/auth');
-const Lesson = require('../models/Lesson');
-const upload = require('../utils/multerConfig');
-
 const router = express.Router();
+const Lesson = require('../models/lesson');
+const auth = require('../middleware/auth');
+const { uploadLesson } = require('../middleware/upload');
 
-/**
- * POST /api/lessons
- * สร้างบทเรียนใหม่ พร้อมอัปโหลดวิดีโอ (optional)
- * - title (text, required)
- * - description (text)
- * - content (text)
- * - video (file)
- */
-router.post('/', auth, upload.single('video'), async (req, res, next) => {
+// Create lesson
+router.post('/', auth, uploadLesson.single('video'), async (req, res) => {
   try {
-    const { title, description, content } = req.body;
-    if (!title) {
-      return res.status(400).json({ message: 'กรุณาระบุ title' });
-    }
-    let videoUrl = null;
-    if (req.file) {
-      videoUrl = `/uploads/lessons/${req.file.filename}`;
-    }
+    const { title, subject, description, quizId } = req.body;
+    if (!req.file) return res.status(400).json({ message: 'Video is required' });
     const lesson = new Lesson({
       title,
+      video: req.file.path,
+      subject,
       description,
-      content,
-      video: videoUrl,
-      createdBy: req.user._id
+      quiz: quizId,
+      owner: req.user._id
     });
     await lesson.save();
-    res.json(lesson);
+    res.json({ message: 'Lesson created', lessonId: lesson._id });
   } catch (err) {
-    next(err);
+    res.status(400).json({ message: 'Lesson creation failed', error: err.message });
   }
 });
 
-/**
- * GET /api/lessons/search?q=keyword
- * ค้นหาบทเรียนจาก title หรือ description
- */
-router.get('/search', auth, async (req, res, next) => {
-  try {
-    const { q } = req.query;
-    if (!q) return res.status(400).json({ message: 'กรุณาระบุ q ใน query' });
-    const lessons = await Lesson.find({
-      $or: [
-        { title: { $regex: q, $options: 'i' } },
-        { description: { $regex: q, $options: 'i' } }
-      ]
-    }).select('title description video createdAt');
-    res.json(lessons);
-  } catch (err) {
-    next(err);
-  }
+// Get all lessons
+router.get('/', auth, async (req, res) => {
+  const lessons = await Lesson.find().populate('owner', 'username');
+  res.json(lessons);
 });
 
-/**
- * GET /api/lessons/:id
- * ดึงรายละเอียดบทเรียน
- */
-router.get('/:id', auth, async (req, res, next) => {
-  try {
-    const lesson = await Lesson.findById(req.params.id).populate('createdBy','name');
-    if (!lesson) return res.status(404).json({ message: 'Lesson not found' });
-    res.json(lesson);
-  } catch (err) {
-    next(err);
-  }
+// Get single lesson
+router.get('/:lessonId', auth, async (req, res) => {
+  const lesson = await Lesson.findById(req.params.lessonId);
+  if (!lesson) return res.status(404).json({ message: 'Lesson not found' });
+  res.json(lesson);
+});
+
+// Update view count
+router.post('/:lessonId/view', auth, async (req, res) => {
+  const lesson = await Lesson.findById(req.params.lessonId);
+  if (!lesson) return res.status(404).json({ message: 'Lesson not found' });
+  lesson.viewsCount += 1;
+  await lesson.save();
+  res.json({ message: 'View recorded' });
+});
+
+// Like a lesson
+router.post('/:lessonId/like', auth, async (req, res) => {
+  const lesson = await Lesson.findById(req.params.lessonId);
+  if (!lesson) return res.status(404).json({ message: 'Lesson not found' });
+  lesson.likesCount += 1;
+  await lesson.save();
+  res.json({ message: 'Liked' });
+});
+
+// Dislike a lesson
+router.post('/:lessonId/dislike', auth, async (req, res) => {
+  const lesson = await Lesson.findById(req.params.lessonId);
+  if (!lesson) return res.status(404).json({ message: 'Lesson not found' });
+  lesson.dislikesCount += 1;
+  await lesson.save();
+  res.json({ message: 'Disliked' });
 });
 
 module.exports = router;
