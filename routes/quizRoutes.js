@@ -1,81 +1,57 @@
-// server/routes/quizRoutes.js
 const express = require('express');
-const upload = require('../utils/multerConfig');    // Multer config for file uploads
-const fs = require('fs');
-const path = require('path');
+const multer = require('../utils/multerConfig');
 const Quiz = require('../models/Quiz');
 const QuizAttempt = require('../models/QuizAttempt');
-const User = require('../models/User');
 const auth = require('../middleware/auth');
+const { customAlphabet } = require('nanoid');
+const nanoid = customAlphabet('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', 8);
 
 const router = express.Router();
 
-// POST /api/quizzes/
-// Create a new quiz with optional cover image and per-question images.
-// Expects multipart/form-data:
-//  - title (string)
-//  - questions (JSON stringified array: [{ question, options, answer }, ...])
-//  - quizImage (file field)
-//  - questionImage_<index> (file fields for each question)
-router.post('/', auth, upload.any(), async (req, res, next) => {
+// Create a new quiz
+router.post('/', auth, multer.single('quizImage'), async (req, res, next) => {
   try {
-    const { title, questions } = req.body;
-    const parsedQs = JSON.parse(questions);
-
-    // Cover image
-    const quizFile = req.files.find(f => f.fieldname === 'quizImage');
-    const quizImage = quizFile ? `/uploads/quizzes/${quizFile.filename}` : null;
-
-    // Map question images by index
-    const qImages = {};
-    req.files.forEach(f => {
-      if (f.fieldname.startsWith('questionImage_')) {
-        const idx = f.fieldname.split('_')[1];
-        qImages[idx] = `/uploads/quizzes/questions/${f.filename}`;
-      }
-    });
-
-    // Build final questions array with images attached
-    const finalQuestions = parsedQs.map((q, i) => ({
+    const { title, questions, totalScore, subject } = req.body;
+    if (!title || !questions || !totalScore || !subject) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+    const qs = JSON.parse(questions);
+    const wrapped = qs.map(q => ({
       question: q.question,
       options: q.options,
       answer: q.answer,
-      image: qImages[i] || null
+      image: q.image || null
     }));
-
     const quiz = new Quiz({
+      quizId: nanoid(),
       title,
-      questions: finalQuestions,
-      image: quizImage,
-      createdBy: req.user._id
+      coverImage: req.file ? `/uploads/quizzes/${req.file.filename}` : null,
+      questions: wrapped,
+      totalScore: parseInt(totalScore),
+      subject,
+      owner: req.user._id
     });
     await quiz.save();
-
-    res.json(quiz);
+    res.status(201).json(quiz);
   } catch (err) {
     next(err);
   }
 });
 
-// GET /api/quizzes/
-// List all quizzes (id, title, cover image, createdBy, createdAt)
+// Get all quizzes
 router.get('/', auth, async (req, res, next) => {
   try {
-    const list = await Quiz.find()
-      .select('title image createdAt')
-      .populate('createdBy', 'name');
+    const list = await Quiz.find().populate('owner','username');
     res.json(list);
   } catch (err) {
     next(err);
   }
 });
 
-// GET /api/quizzes/:id
-// Retrieve a single quiz with all its questions and images
-router.get('/:id', auth, async (req, res, next) => {
+// Get quiz by quizId
+router.get('/:quizId', auth, async (req, res, next) => {
   try {
-    const quiz = await Quiz.findById(req.params.id)
-      .populate('createdBy', 'name');
+    const quiz = await Quiz.findOne({ quizId: req.params.quizId }).populate('owner','username');
     if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
     res.json(quiz);
   } catch (err) {
@@ -83,48 +59,33 @@ router.get('/:id', auth, async (req, res, next) => {
   }
 });
 
-// POST /api/quizzes/:id/attempt
-// Submit answers to a quiz, calculate score, save attempt, and update user's totalScore
-router.post('/:id/attempt', auth, async (req, res, next) => {
+// Submit quiz attempt
+router.post('/:quizId/attempt', auth, async (req, res, next) => {
   try {
-    const quiz = await Quiz.findById(req.params.id);
+    const quiz = await Quiz.findOne({ quizId: req.params.quizId });
     if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
-
-    const answers = req.body.answers; // [{ questionId, given }]
+    const answers = req.body.answers; // [{questionId, given}]
     let score = 0;
     quiz.questions.forEach(q => {
-      const ans = answers.find(a => a.questionId === q._id.toString());
-      if (ans && ans.given === q.answer) score++;
+      const a = answers.find(x => x.questionId === q._id.toString());
+      if (a && a.given === q.answer) score++;
     });
-
-    // Save attempt record
-    const attempt = new QuizAttempt({
-      quiz: quiz._id,
-      user: req.user._id,
-      answers,
-      score
-    });
+    const attempt = new QuizAttempt({ quiz: quiz._id, user: req.user._id, answers, score });
     await attempt.save();
-
-    // Increment user's totalScore
-    await User.findByIdAndUpdate(req.user._id, {
-      $inc: { totalScore: score }
-    });
-
-    res.json({ score, total: quiz.questions.length });
+    quiz.attemptsCount++;
+    await quiz.save();
+    res.json({ score, total: quiz.totalScore });
   } catch (err) {
     next(err);
   }
 });
 
-// GET /api/quizzes/:id/attempts
-// Get the authenticated user's history of attempts for this quiz
-router.get('/:id/attempts', auth, async (req, res, next) => {
+// Get attempts of user for a quiz
+router.get('/:quizId/attempts', auth, async (req, res, next) => {
   try {
-    const atts = await QuizAttempt.find({
-      quiz: req.params.id,
-      user: req.user._id
-    }).sort('-takenAt');
+    const quiz = await Quiz.findOne({ quizId: req.params.quizId });
+    if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
+    const atts = await QuizAttempt.find({ quiz: quiz._id, user: req.user._id }).sort('-takenAt');
     res.json(atts);
   } catch (err) {
     next(err);

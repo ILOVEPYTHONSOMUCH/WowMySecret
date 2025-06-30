@@ -6,13 +6,12 @@ const connectDB = require('./db');
 
 // routes
 const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
 const postRoutes = require('./routes/posts');
 const commentRoutes = require('./routes/comments');
-const quizRoutes = require('./routes/quizRoutes');
-const videoRoutes = require('./routes/lessonRoutes.js');
+const quizRoutes = require('./routes/quizRoutes.js');
 const lessonRoutes = require('./routes/lessonRoutes');
-const chatRoutes = require('./routes/chat');
+const profileRoutes = require('./routes/profileRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 
 const app = express();
 
@@ -35,6 +34,8 @@ app.use('/api/posts', commentRoutes);
 app.use('/api/quizzes', quizRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/lessons', lessonRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/chat', chatRoutes);
 chatRoutes(app); // if this is a function accepting app/socket
 
 // --- 4) Error handler ---
