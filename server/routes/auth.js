@@ -4,12 +4,14 @@ const jwt = require('jsonwebtoken');
 const multer = require('../config/multerConfig');
 const auth = require('../middleware/auth');
 const User = require('../models/User');
+const bcrypt = require('bcryptjs');
 
 // Register
 router.post('/register', multer.single('avatar'), async (req, res, next) => {
   try {
-    const { username, email, password, grade } = req.body;
+    const { username, email, password, grade, skills } = req.body;
     const user = new User({ username, email, password, grade });
+    if (skills) user.skills = typeof skills === 'string' ? JSON.parse(skills) : skills;
     if (req.file) user.avatar = req.file.path;
     await user.save();
     const token = jwt.sign({ user: { id: user._id } }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -36,12 +38,25 @@ router.get('/me', auth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Update profile (username, password, avatar, grade, skills)
 router.put('/profile', auth, multer.single('avatar'), async (req, res, next) => {
   try {
-    const update = { ...req.body };
-    if (req.file) update.avatar = req.file.path;
-    const user = await User.findByIdAndUpdate(req.user.id, update, { new: true }).select('-password');
-    res.json(user);
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const { username, password, grade, skills } = req.body;
+    if (username) user.username = username;
+    if (grade) user.grade = grade;
+    if (skills) user.skills = typeof skills === 'string' ? JSON.parse(skills) : skills;
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(password, salt);
+    }
+    if (req.file) user.avatar = req.file.path;
+
+    await user.save();
+    const updatedUser = await User.findById(req.user.id).select('-password');
+    res.json(updatedUser);
   } catch (err) { next(err); }
 });
 

@@ -1,24 +1,43 @@
-// server/config/multerConfig.js
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-function mkdirRecursive(dirPath) {
-  fs.mkdirSync(dirPath, { recursive: true });
+function makeDir(dir) {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    // SAFELY wait for form fields to be parsed
-    let userId = req.body.userId || 'unknown';
-    const fileType = file.mimetype.startsWith('video') ? 'videos' : 'images';
-    const uploadPath = path.join('uploads', userId, fileType);
-    mkdirRecursive(uploadPath);
-    cb(null, uploadPath);
+  destination(req, file, cb) {
+    // extract userId from auth or form
+    const userId = req.user?.id || req.body.userId || 'anonymous';
+
+    // base upload path inside server
+    const base = path.join(__dirname, '..', 'server', 'uploads', userId);
+
+    // decide subfolder by fieldname or mimetype
+    let subfolder;
+    if (file.fieldname === 'video' || file.fieldname === 'media' && file.mimetype.startsWith('video')) {
+      // lesson videos or comment media videos
+      subfolder = 'videos';
+    } else if (/^questionImage_|^coverImage$/.test(file.fieldname)) {
+      // quiz-specific images
+      subfolder = 'quizzes';
+    } else if (file.mimetype.startsWith('video')) {
+      // any other detected video
+      subfolder = 'videos';
+    } else {
+      // all other images: avatars, post images, quiz question images without questionImage_ prefix
+      subfolder = 'images';
+    }
+
+    const fullDir = path.join(base, subfolder);
+    makeDir(fullDir);
+    cb(null, fullDir);
   },
-  filename: function (req, file, cb) {
-    const uniqueName = `${Date.now()}-${file.originalname}`;
-    cb(null, uniqueName);
+
+  filename(req, file, cb) {
+    const unique = `${Date.now()}-${file.originalname}`;
+    cb(null, unique);
   }
 });
 

@@ -12,8 +12,7 @@ const commentRoutes = require('./server/routes/commentRoutes');
 const feedRoutes = require('./server/routes/feedRoutes');
 const watchRoutes = require('./server/routes/watchRoutes');
 const chatRoutes = require('./server/routes/chatRoutes');
-const userInfoRoutes = require('./server/routes/userInfoRoutes');
-
+const searchRoutres = require('./server/routes/searchRoutes')
 
 dotenv.config();
 const app = express();
@@ -30,7 +29,7 @@ app.use('/api/posts', commentRoutes);
 app.use('/api/feed', feedRoutes);
 app.use('/api/watch', watchRoutes);
 app.use('/api/chat', chatRoutes);
-app.use('/api/user', userInfoRoutes);
+app.use('/api/search',searchRoutres);
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 app.use(errorHandler);
 const PORT = process.env.PORT || 6000;
