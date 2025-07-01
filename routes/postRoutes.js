@@ -6,15 +6,23 @@ const auth = require('../middleware/auth');
 const { uploadPostMedia, uploadComment } = require('../middleware/upload');
 
 // Create post
-router.post('/', auth, uploadPostMedia.single('media'), async (req, res) => {
+router.post('/', auth, async (req, res, next) => {
+  if (req.is('multipart/form-data')) {
+    uploadPostMedia.single('media')(req, res, err => {
+      if (err) return next(err);
+      next();
+    });
+  } else next();
+}, async (req, res) => {
   try {
     const { title, content, teachSubjects, learnSubjects } = req.body;
+    // ถ้า req.body มาจาก JSON จะถูก parse ด้วย express.json()
     const post = new Post({
       title,
       content,
-      media: req.file ? req.file.path : undefined,
-      teachSubjects: teachSubjects ? teachSubjects.split(',') : [],
-      learnSubjects: learnSubjects ? learnSubjects.split(',') : [],
+      media: req.file?.path,
+      teachSubjects: teachSubjects?.split(',') || [],
+      learnSubjects: learnSubjects?.split(',') || [],
       owner: req.user._id
     });
     await post.save();
@@ -23,7 +31,6 @@ router.post('/', auth, uploadPostMedia.single('media'), async (req, res) => {
     res.status(400).json({ message: 'Post creation failed', error: err.message });
   }
 });
-
 // Get all posts
 router.get('/', auth, async (req, res) => {
   const posts = await Post.find().populate('owner', 'username');

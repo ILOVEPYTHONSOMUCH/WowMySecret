@@ -5,16 +5,26 @@ const User = require('../models/user');
 const auth = require('../middleware/auth');
 const { uploadQuizCover } = require('../middleware/upload');
 
-// Create quiz
-router.post('/', auth, uploadQuizCover.single('coverImage'), async (req, res) => {
+// Create quiz — Multer only when Content‑Type is multipart
+router.post('/', auth, async (req, res, next) => {
+  if (req.is('multipart/form-data')) {
+    // ถ้ามีไฟล์ เข้าสู่ multer
+    uploadQuizCover.single('coverImage')(req, res, err => {
+      if (err) return next(err);
+      next();
+    });
+  } else {
+    // ไม่มีไฟล์ เลยข้าม multer
+    next();
+  }
+}, async (req, res) => {
   try {
-    const { title, questions } = req.body; // questions expected as JSON string or already object
-    let questionsData = questions;
-    if (typeof questions === 'string') questionsData = JSON.parse(questions);
+    let { title, questions } = req.body;
+    if (typeof questions === 'string') questions = JSON.parse(questions);
     const quiz = new Quiz({
       title,
-      coverImage: req.file ? req.file.path : undefined,
-      questions: questionsData,
+      coverImage: req.file?.path,
+      questions,
       owner: req.user._id
     });
     await quiz.save();
@@ -23,6 +33,7 @@ router.post('/', auth, uploadQuizCover.single('coverImage'), async (req, res) =>
     res.status(400).json({ message: 'Quiz creation failed', error: err.message });
   }
 });
+
 
 // Attempt quiz
 router.post('/:quizId/attempt', auth, async (req, res) => {

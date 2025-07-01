@@ -33,7 +33,9 @@ app.use('/api/posts', postRoutes);
 app.use('/api/lessons', lessonRoutes);
 app.use('/api/feed', feedRoutes);
 app.use('/api/chats', chatRoutes);
-
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 // Error handling
 app.use(errorHandler);
 
