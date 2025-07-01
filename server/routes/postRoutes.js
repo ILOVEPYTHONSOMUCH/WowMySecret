@@ -42,6 +42,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // Search Posts
+/*
 router.get('/search', async (req, res, next) => {
   try {
     const { q } = req.query;
@@ -59,5 +60,5 @@ router.get('/search', async (req, res, next) => {
     next(err);
   }
 });
-
+*/
 module.exports = router;

@@ -21,6 +21,7 @@ router.post('/send', auth, multer.single('media'), async (req, res, next) => {
 });
 
 // List Previews
+/*
 router.get('/', auth, async (req, res, next) => {
   try {
     const chats = await Chat.find({ participants: req.user.id });
@@ -40,5 +41,5 @@ router.get('/conversations/:chatId', auth, async (req, res, next) => {
     res.json(chat);
   } catch (err) { next(err); }
 });
-
+*/
 module.exports = router;

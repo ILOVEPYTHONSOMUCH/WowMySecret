@@ -19,11 +19,13 @@ router.post('/:postId/comments', auth, multer.single('media'), async (req, res, 
 });
 
 // List Comments
+/*
 router.get('/:postId/comments', async (req, res, next) => {
   try {
     const comments = await Comment.find({ post: req.params.postId });
     res.json(comments);
   } catch (err) { next(err); }
 });
+*/
 
 module.exports = router;

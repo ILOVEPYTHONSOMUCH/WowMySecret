@@ -38,6 +38,7 @@ router.post('/', auth, multer.single('video'), async (req, res, next) => {
   }
 });
 
+/*
 // List Lessons
 router.get('/', async (req, res, next) => {
   try {
@@ -58,5 +59,5 @@ router.get('/:lessonId', async (req, res, next) => {
     next(err);
   }
 });
-
+*/
 module.exports = router;
