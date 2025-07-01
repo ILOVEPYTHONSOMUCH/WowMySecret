@@ -1,27 +1,25 @@
 const mongoose = require('mongoose');
 
+// คำถามแต่ละข้อ
 const questionSchema = new mongoose.Schema({
   question: { type: String, required: true },
-  choices:  { type: [String], required: true }, // expect 5 choices
-  answer:   { type: Number, required: true },    // index of correct choice (0-4)
-  image:    { type: String },
-  subject:  { type: String }
+  options:  { type: [String], required: true },   // ต้องมี 5 ตัวเลือก
+  answer:   { type: String, required: true },     // ค่าเฉลย
+  image:    { type: String, default: null }       // รูปภาพประกอบข้อ
 });
 
+// สคีมา Quiz หลัก
 const quizSchema = new mongoose.Schema({
-  title:       { type: String, required: true },
-  coverImage:  { type: String },
-  questions:   [questionSchema],
-  totalScore:  { type: Number, default: 0 },
-  owner:       { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  quizId:       { type: String, unique: true, required: true },  // รหัสสุ่ม 8 ตัว
+  title:        { type: String, required: true },
+  coverImage:   { type: String, default: null },                // ภาพหน้าปก
+  questions:    { type: [questionSchema], required: true },
+  subject:      { type: String, required: true },
+  owner:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   attemptsCount:{ type: Number, default: 0 },
-  createdAt:   { type: Date, default: Date.now }
+  createdAt:    { type: Date, default: Date.now }
 });
 
-// Pre-calculate totalScore as number of questions or sum of something
-quizSchema.pre('save', function(next) {
-  this.totalScore = this.questions.length;
-  next();
-});
-
-module.exports = mongoose.model('Quiz', quizSchema);
+// ป้องกันการประกาศโมเดลซ้ำ
+module.exports = mongoose.models.Quiz 
+  || mongoose.model('Quiz', quizSchema);
