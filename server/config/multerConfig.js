@@ -1,18 +1,25 @@
+// server/config/multerConfig.js
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { nanoid } = require('nanoid');
+
+function mkdirRecursive(dirPath) {
+  fs.mkdirSync(dirPath, { recursive: true });
+}
+
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const userId = req.user.id;
-    const type = file.mimetype.startsWith('video') ? 'videos' : 'images';
-    const dir = path.join(__dirname, '../../uploads', userId, type);
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
+  destination: function (req, file, cb) {
+    // SAFELY wait for form fields to be parsed
+    let userId = req.body.userId || 'unknown';
+    const fileType = file.mimetype.startsWith('video') ? 'videos' : 'images';
+    const uploadPath = path.join('uploads', userId, fileType);
+    mkdirRecursive(uploadPath);
+    cb(null, uploadPath);
   },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, nanoid(8) + ext);
+  filename: function (req, file, cb) {
+    const uniqueName = `${Date.now()}-${file.originalname}`;
+    cb(null, uniqueName);
   }
 });
+
 module.exports = multer({ storage });

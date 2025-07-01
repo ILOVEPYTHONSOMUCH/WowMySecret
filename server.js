@@ -34,4 +34,4 @@ app.use('/api/user', userInfoRoutes);
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 app.use(errorHandler);
 const PORT = process.env.PORT || 6000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(6000, () => console.log(`Server running on port ${PORT}`));
