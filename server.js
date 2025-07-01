@@ -1,0 +1,37 @@
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const dotenv = require('dotenv');
+const dbConnect = require('./server/config/db');
+const errorHandler = require('./server/middleware/errorHandler');
+const authRoutes = require('./server/routes/auth');
+const quizRoutes = require('./server/routes/quizRoutes');
+const lessonRoutes = require('./server/routes/lessonRoutes');
+const postRoutes = require('./server/routes/postRoutes');
+const commentRoutes = require('./server/routes/commentRoutes');
+const feedRoutes = require('./server/routes/feedRoutes');
+const watchRoutes = require('./server/routes/watchRoutes');
+const chatRoutes = require('./server/routes/chatRoutes');
+const userInfoRoutes = require('./server/routes/userInfoRoutes');
+
+
+dotenv.config();
+const app = express();
+dbConnect();
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/auth', authRoutes);
+app.use('/api/quizzes', quizRoutes);
+app.use('/api/lessons', lessonRoutes);
+app.use('/api/posts', postRoutes);
+app.use('/api/posts', commentRoutes);
+app.use('/api/feed', feedRoutes);
+app.use('/api/watch', watchRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/user', userInfoRoutes);
+app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
+app.use(errorHandler);
+const PORT = process.env.PORT || 6000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
