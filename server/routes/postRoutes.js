@@ -32,6 +32,7 @@ router.post('/', auth, multer.any(), async (req, res, next) => {
 });
 
 // List Posts
+/*
 router.get('/', async (req, res, next) => {
   try {
     const posts = await Post.find().sort({ createdAt: -1 });

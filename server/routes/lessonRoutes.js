@@ -14,12 +14,16 @@ const Lesson = require('../models/Lesson');
  */
 router.post('/', auth, multer.single('video'), async (req, res, next) => {
   try {
-    // Enforce video upload
     if (!req.file) {
       return res.status(400).json({ message: 'Video file is required for lessons.' });
     }
 
-    const { title, subject, description, relatedQuizzes } = req.body;
+    const { title, subject, description, relatedQuizzes, grade } = req.body;
+
+    // ✅ Check for grade
+    if (!grade || isNaN(grade)) {
+      return res.status(400).json({ message: 'Grade is required and must be a number.' });
+    }
 
     const lesson = new Lesson({
       lessonId: nanoid(8),
@@ -28,11 +32,12 @@ router.post('/', auth, multer.single('video'), async (req, res, next) => {
       subject,
       description,
       relatedQuizzes: relatedQuizzes ? JSON.parse(relatedQuizzes) : [],
-      video: req.file.path
+      video: req.file.path,
+      grade: parseInt(grade, 10) // ✅ Store grade as number
     });
 
     await lesson.save();
-    res.json(lesson);
+    res.status(201).json({ message: 'Lesson created successfully', lesson });
   } catch (err) {
     next(err);
   }

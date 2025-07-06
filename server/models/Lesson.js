@@ -7,6 +7,7 @@ const LessonSchema = new mongoose.Schema({
   description: String,
   relatedQuizzes: [String],
   video: String,
+  grade: { type: Number, required: true }, // ✅ Add this line
   viewsCount: { type: Number, default: 0 },
   likesCount: { type: Number, default: 0 },
   dislikesCount: { type: Number, default: 0 }
