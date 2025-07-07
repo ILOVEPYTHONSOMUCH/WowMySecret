@@ -9,7 +9,7 @@ function makeDir(dir) {
 const storage = multer.diskStorage({
   destination(req, file, cb) {
     // extract userId from auth or form
-    const userId = req.user?.id || req.body.userId || 'anonymous';
+    const userId = req.user?.id || req.body.userId || 'userprofile';
 
     // base upload path inside server
     const base = path.join(__dirname, '..', 'server', 'uploads', userId);
