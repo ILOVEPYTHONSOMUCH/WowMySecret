@@ -2,30 +2,41 @@
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { nanoid } = require('nanoid');
 
 const UserSchema = new mongoose.Schema({
-  username:     { type: String, required: true, unique: true },
-  email:        { type: String, required: true, unique: true },
-  password:     { type: String, required: true },
-  grade:        { type: Number, required: true },
-  avatar:       { type: String, default: '' }, // <-- store filename only
-  skills: {
-    strengths:  { type: [String], default: [] },
-    weaknesses: { type: [String], default: [] }
+  // new: short random ID for folder names
+  userId: {
+    type: String,
+    required: true,
+    unique: true,
+    default: () => nanoid(8)
   },
-  quizScores:   [{ quizId: String, score: Number }],
-  totalScore:   { type: Number, default: 0 },
-  attemptsCount:{ type: Number, default: 0 }
+
+  username:      { type: String, required: true, unique: true },
+  email:         { type: String, required: true, unique: true },
+  password:      { type: String, required: true },
+  grade:         { type: Number, required: true },
+  avatar:        { type: String, default: '' },  // just the relative path or filename
+  skills: {
+    strengths:   { type: [String], default: [] },
+    weaknesses:  { type: [String], default: [] }
+  },
+  quizScores:    [{ quizId: String, score: Number }],
+  totalScore:    { type: Number, default: 0 },
+  attemptsCount: { type: Number, default: 0 }
+}, {
+  timestamps: true
 });
 
-// Hash password on save
+// Hash password before saving
 UserSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 10);
   next();
 });
 
-// Compare password
+// Compare entered password to stored hash
 UserSchema.methods.matchPassword = function(entered) {
   return bcrypt.compare(entered, this.password);
 };

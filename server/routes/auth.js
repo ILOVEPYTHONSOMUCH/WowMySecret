@@ -1,63 +1,52 @@
-// routes/auth.js
+// server/routes/auth.js
 
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const fs = require('fs');
+const path = require('path');
 const multer = require('../config/multerConfig');
 const auth = require('../middleware/auth');
 const User = require('../models/User');
-const bcrypt = require('bcryptjs');
+const { nanoid } = require('nanoid');
+const mkdirRecursive = require('../utils/mkdirRecursive');
 
-// Register
-router.post(
-  '/register',
-  multer.single('avatar'),
-  async (req, res, next) => {
-    try {
-      const { username, email, password, grade: gradeRaw, skills } = req.body;
-      const grade = parseInt(gradeRaw, 10);
-      if (isNaN(grade)) {
-        return res.status(400).json({ message: 'Invalid grade' });
-      }
+// ─── Register ─────────────────────────────────────────────────────────
+router.post('/register', multer.single('avatar'), async (req, res, next) => {
+  try {
+    const { username, email, password, grade } = req.body;
+    const userId = nanoid(8);
 
-      // Create user
-      const user = new User({
-        username,
-        email,
-        password,
-        grade
-      });
+    // 1) Create the user document
+    const user = new User({ userId, username, email, password, grade });
+    await user.save();
 
-      // Parse skills if present
-      if (skills) {
-        user.skills = typeof skills === 'string'
-          ? JSON.parse(skills)
-          : skills;
-      }
+    // 2) If an avatar was uploaded, move it into uploads/<userId>/images
+    if (req.file) {
+      const destDir = path.join('uploads', user.userId, 'images');
+      await mkdirRecursive(destDir);
 
-      // If multer stored a file, save the full path
-      if (req.file && req.file.path) {
-        // e.g. 'uploads/6863f7d4d83504e964c55ef2/images/avatar.jpg'
-        user.avatar = req.file.path;
-      }
+      const destPath = path.join(destDir, req.file.filename);
+      fs.renameSync(req.file.path, destPath);
 
+      user.avatar = `${destDir}/${req.file.filename}`.replace(/\\/g, '/');
       await user.save();
-
-      // Sign JWT
-      const token = jwt.sign(
-        { user: { id: user._id } },
-        process.env.JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-
-      res.status(201).json({ token });
-    } catch (err) {
-      next(err);
     }
-  }
-);
 
-// Login
+    // 3) Issue JWT
+    const token = jwt.sign(
+      { user: { id: user._id } },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    res.json({ token });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Login ────────────────────────────────────────────────────────────
 router.post('/login', async (req, res, next) => {
   try {
     const { identifier, password } = req.body;
@@ -78,20 +67,17 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
-// Get current user
+// ─── Get Profile ──────────────────────────────────────────────────────
 router.get('/me', auth, async (req, res, next) => {
   try {
-    // Include avatar path so client can load via /api/file?path=<avatar>
-    const user = await User.findById(req.user.id)
-      .select('-password')
-      .lean();
+    const user = await User.findById(req.user.id).select('-password');
     res.json(user);
   } catch (err) {
     next(err);
   }
 });
 
-// Update profile
+// ─── Update Profile ───────────────────────────────────────────────────
 router.put(
   '/profile',
   auth,
@@ -107,49 +93,58 @@ router.put(
         grade: gradeRaw,
         strengths,
         weaknesses,
-        skills // optional if full object is sent as JSON
+        skills
       } = req.body;
 
+      // Update basic fields
       if (username) user.username = username;
-
       if (gradeRaw !== undefined) {
         const g = parseInt(gradeRaw, 10);
         if (!isNaN(g)) user.grade = g;
       }
 
-      // Handle skills in two possible ways
+      // Update skills
       if (skills) {
         user.skills = typeof skills === 'string'
           ? JSON.parse(skills)
           : skills;
       } else {
-        // Legacy or manual field-based input
         user.skills = {
           strengths: strengths ? [strengths] : [],
           weaknesses: weaknesses ? [weaknesses] : []
         };
       }
 
+      // Update password
       if (password) {
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(password, salt);
       }
 
-      if (req.file && req.file.path) {
-        user.avatar = req.file.path; // already has userId-based path from multer
+      // Update avatar file if provided
+      if (req.file) {
+        const destDir = path.join('uploads', user.userId, 'images');
+        await mkdirRecursive(destDir);
+
+        const destPath = path.join(destDir, req.file.filename);
+        fs.renameSync(req.file.path, destPath);
+
+        user.avatar = `${destDir}/${req.file.filename}`.replace(/\\/g, '/');
       }
 
       await user.save();
 
+      // Return updated user
       const updated = await User.findById(req.user.id)
         .select('-password')
         .lean();
-
       res.json(updated);
+
     } catch (err) {
       console.error('Update error:', err);
       res.status(500).json({ message: 'Server error while updating profile' });
     }
   }
 );
+
 module.exports = router;
