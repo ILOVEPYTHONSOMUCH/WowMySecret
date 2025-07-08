@@ -1,3 +1,4 @@
+// config/multerConfig.js
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -11,22 +12,25 @@ const storage = multer.diskStorage({
     // extract userId from auth or form
     const userId = req.user?.id || req.body.userId || 'userprofile';
 
-    // base upload path inside server
-    const base = path.join(__dirname, '..', 'server', 'uploads', userId);
+    // base upload path (one level above config folder)
+    // assumes your project structure is:
+    //  project-root/
+    //    uploads/
+    //    config/
+    const base = path.join(__dirname, '..', 'uploads', userId);
 
     // decide subfolder by fieldname or mimetype
     let subfolder;
-    if (file.fieldname === 'video' || file.fieldname === 'media' && file.mimetype.startsWith('video')) {
-      // lesson videos or comment media videos
+    if (
+      file.fieldname === 'video' ||
+      (file.fieldname === 'media' && file.mimetype.startsWith('video'))
+    ) {
       subfolder = 'videos';
     } else if (/^questionImage_|^coverImage$/.test(file.fieldname)) {
-      // quiz-specific images
       subfolder = 'quizzes';
     } else if (file.mimetype.startsWith('video')) {
-      // any other detected video
       subfolder = 'videos';
     } else {
-      // all other images: avatars, post images, quiz question images without questionImage_ prefix
       subfolder = 'images';
     }
 
