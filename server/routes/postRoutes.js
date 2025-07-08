@@ -8,22 +8,47 @@ const { mkdirRecursive } = require('../utils/mkdirRecursive');
 // Create Post
 router.post('/', auth, multer.any(), async (req, res, next) => {
   try {
-    const { title, description, teachSubjects, learnSubjects, userId } = req.body;
+    // Destructure the fields you expect:
+    // - title, description (strings)
+    // - teachSubjects & learnSubjects as JSON‐strings
+    // - grade as a string (we'll parseInt)
+    const {
+      title,
+      description,
+      teachSubjects,
+      learnSubjects,
+      grade
+    } = req.body;
 
+    // Validate required fields
+    if (!title?.trim() || !description?.trim()) {
+      return res.status(400).json({ message: 'Title and description are required.' });
+    }
+    if (typeof grade === 'undefined') {
+      return res.status(400).json({ message: 'Grade is required.' });
+    }
+    const gradeInt = parseInt(grade, 10);
+    if (isNaN(gradeInt)) {
+      return res.status(400).json({ message: 'Grade must be a number.' });
+    }
+
+    // Build the Post document
     const post = new Post({
       title,
       description,
       teachSubjects: JSON.parse(teachSubjects || '[]'),
       learnSubjects: JSON.parse(learnSubjects || '[]'),
-      user: req.user.id,
+      grade: gradeInt,
+      user: req.user.id,             // owner from JWT
     });
 
-    const imageFile = req.files?.find(f => f.fieldname === 'image');
-    const videoFile = req.files?.find(f => f.fieldname === 'video');
-
+    // Attach any uploaded image/video
+    const imageFile = req.files.find(f => f.fieldname === 'image');
+    const videoFile = req.files.find(f => f.fieldname === 'video');
     if (imageFile) post.image = imageFile.path;
     if (videoFile) post.video = videoFile.path;
 
+    // Save and return
     const saved = await post.save();
     res.status(201).json(saved);
   } catch (err) {
