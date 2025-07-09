@@ -1,12 +1,18 @@
 const jwt = require('jsonwebtoken');
-module.exports = (req, res, next) => {
-  const token = req.header('Authorization')?.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'No token, authorization denied' });
+
+module.exports = function auth(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'No token, authorization denied' });
+  }
+  const token = header.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded.user;
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    // payload.id must be the Mongo _id string
+    req.user = { id: payload.id };
     next();
-  } catch {
+  } catch (err) {
+    console.error('JWT error', err);
     res.status(401).json({ message: 'Token is not valid' });
   }
 };

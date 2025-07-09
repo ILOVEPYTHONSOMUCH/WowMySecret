@@ -3,22 +3,12 @@ const router = express.Router();
 const multer = require('../config/multerConfig');
 const Post = require('../models/Post');
 const auth = require('../middleware/auth');
-const { mkdirRecursive } = require('../utils/mkdirRecursive');
 
 // Create Post
 router.post('/', auth, multer.any(), async (req, res, next) => {
   try {
     // Destructure the fields you expect:
-    // - title, description (strings)
-    // - teachSubjects & learnSubjects as JSON‐strings
-    // - grade as a string (we'll parseInt)
-    const {
-      title,
-      description,
-      teachSubjects,
-      learnSubjects,
-      grade
-    } = req.body;
+    const { title, description, teachSubjects, learnSubjects, grade } = req.body;
 
     // Validate required fields
     if (!title?.trim() || !description?.trim()) {
@@ -32,6 +22,12 @@ router.post('/', auth, multer.any(), async (req, res, next) => {
       return res.status(400).json({ message: 'Grade must be a number.' });
     }
 
+    // Confirm authenticated user
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized: User ID missing.' });
+    }
+
     // Build the Post document
     const post = new Post({
       title,
@@ -39,7 +35,7 @@ router.post('/', auth, multer.any(), async (req, res, next) => {
       teachSubjects: JSON.parse(teachSubjects || '[]'),
       learnSubjects: JSON.parse(learnSubjects || '[]'),
       grade: gradeInt,
-      user: req.user.id,             // owner from JWT
+      user: userId,             // owner from JWT
     });
 
     // Attach any uploaded image/video
@@ -56,35 +52,4 @@ router.post('/', auth, multer.any(), async (req, res, next) => {
   }
 });
 
-// List Posts
-/*
-router.get('/', async (req, res, next) => {
-  try {
-    const posts = await Post.find().sort({ createdAt: -1 });
-    res.json(posts);
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Search Posts
-/*
-router.get('/search', async (req, res, next) => {
-  try {
-    const { q } = req.query;
-    const regex = new RegExp(q, 'i');
-    const posts = await Post.find({
-      $or: [
-        { title: regex },
-        { description: regex },
-        { teachSubjects: regex },
-        { learnSubjects: regex }
-      ]
-    });
-    res.json(posts);
-  } catch (err) {
-    next(err);
-  }
-});
-*/
 module.exports = router;

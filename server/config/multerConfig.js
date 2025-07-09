@@ -1,7 +1,7 @@
-// config/multerConfig.js
+// server/config/multerConfig.js
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const path  = require('path');
+const fs    = require('fs');
 
 function makeDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -9,17 +9,10 @@ function makeDir(dir) {
 
 const storage = multer.diskStorage({
   destination(req, file, cb) {
-    // extract userId from auth or form
     const userId = req.user?.id || req.body.userId || 'userprofile';
+    // now points to <project‑root>/uploads/<userId>/...
+    const base = path.join(__dirname, '..', '..', 'uploads', userId);
 
-    // base upload path (one level above config folder)
-    // assumes your project structure is:
-    //  project-root/
-    //    uploads/
-    //    config/
-    const base = path.join(__dirname, '..', 'uploads', userId);
-
-    // decide subfolder by fieldname or mimetype
     let subfolder;
     if (
       file.fieldname === 'video' ||

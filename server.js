@@ -14,7 +14,7 @@ const watchRoutes = require('./server/routes/watchRoutes');
 const chatRoutes = require('./server/routes/chatRoutes');
 const searchRoutres = require('./server/routes/searchRoutes')
 const fileRoute = require('./server/routes/fileRoute');
-
+const userinfoRoute = require('./server/routes/userinfoRoutes');
 dotenv.config();
 const app = express();
 dbConnect();
@@ -32,6 +32,7 @@ app.use('/api/watch', watchRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/search',searchRoutres);
 app.use('/api/file', fileRoute);
+app.use('/api/user', userinfoRoute);
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 app.use(errorHandler);
 const PORT = process.env.PORT || 6000;
