@@ -73,7 +73,7 @@ router.put('/profile', auth, multer.single('avatar'), async (req, res, next) => 
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const { username, password, grade: gradeRaw, skills } = req.body;
+    const { username, password, grade: gradeRaw, skills , note} = req.body;
 
     // Update basic fields
     if (username) user.username = username;
@@ -81,7 +81,9 @@ router.put('/profile', auth, multer.single('avatar'), async (req, res, next) => 
       const g = parseInt(gradeRaw, 10);
       if (!isNaN(g)) user.grade = g;
     }
-
+    if (note){
+      user.note = note;
+    }
     // Update skills
     if (skills) {
       user.skills = typeof skills === 'string' ? JSON.parse(skills) : skills;

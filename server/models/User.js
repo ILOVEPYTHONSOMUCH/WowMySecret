@@ -24,8 +24,10 @@ const UserSchema = new mongoose.Schema({
   },
   quizScores:    [{ quizId: String, score: Number }],
   totalScore:    { type: Number, default: 0 },
-  attemptsCount: { type: Number, default: 0 }
-}, {
+  attemptsCount: { type: Number, default: 0 },
+  note: {type: String, default : "nothing"}
+}, 
+{
   timestamps: true
 });
 
