@@ -32,7 +32,7 @@ app.use('/api/watch', watchRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/search',searchRoutres);
 app.use('/api/file', fileRoute);
-app.use('/api/user', userinfoRoute);
+app.use('/api/users', userinfoRoute);
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 app.use(errorHandler);
 const PORT = process.env.PORT || 6000;

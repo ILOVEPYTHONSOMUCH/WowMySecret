@@ -25,7 +25,10 @@ const UserSchema = new mongoose.Schema({
   quizScores:    [{ quizId: String, score: Number }],
   totalScore:    { type: Number, default: 0 },
   attemptsCount: { type: Number, default: 0 },
-  note: {type: String, default : "nothing"}
+  note: {type: String, default : "nothing"},
+  totalPosts: { type: Number, default: 0 },
+  totalLessons: { type: Number, default: 0 },
+  totalQuizzes: { type: Number, default: 0 },
 }, 
 {
   timestamps: true

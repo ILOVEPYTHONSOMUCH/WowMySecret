@@ -13,7 +13,7 @@ router.get('/:id', async (req, res, next) => {
 
     // Fetch only the public fields
     const user = await User.findById(id)
-      .select('username email grade skills strengths weaknesses avatar')
+      .select('username email grade skills strengths weaknesses avatar note totalPosts totalLessons totalQuizzes totalScore')
       .lean();
 
     if (!user) {
@@ -29,7 +29,11 @@ router.get('/:id', async (req, res, next) => {
         strengths: user.skills?.strengths || [],
         weaknesses: user.skills?.weaknesses || []
       },
-      avatar:   user.avatar  // e.g. 'uploads/<userId>/images/…'
+      avatar:   user.avatar,  // e.g. 'uploads/<userId>/images/…'
+      note: user.note || 'nothing',
+      totalScore: user.totalScore,
+      totalPosts: user.totalPosts,
+      totalQuizzes: user.totalQuizzes
     };
 
     res.json(response);

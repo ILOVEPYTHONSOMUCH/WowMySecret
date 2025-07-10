@@ -3,8 +3,8 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('../config/multerConfig');
-const Post = require('../models/Post');
-const auth = require('../middleware/auth');
+const Post = require('../models/Post'); // Assuming Post model has likes and dislikes arrays
+const auth = require('../middleware/auth'); // Auth middleware to ensure user is logged in
 const path = require('path'); // Import path module
 
 // Define the base uploads directory. This must match your multerConfig's base.
@@ -33,8 +33,8 @@ function toRelativeUnixPath(absolutePath) {
       // Ensure it starts with 'uploads/' and uses forward slashes
       return path.join('uploads', relativePath).replace(/\\/g, '/');
   } catch (e) {
-      console.warn("Could not determine relative path for:", absolutePath, e);
-      return normalizedPath; // Fallback to normalized absolute path if relative conversion fails
+    console.warn("Could not determine relative path for:", absolutePath, e);
+    return normalizedPath; // Fallback to normalized absolute path if relative conversion fails
   }
 }
 
@@ -60,8 +60,6 @@ router.post('/', auth, multer.any(), async (req, res, next) => {
     // Confirm authenticated user
     const userId = req.user?.id;
     if (!userId) {
-      // This should ideally be handled by the 'auth' middleware returning 401
-      // But good to have a fallback check.
       return res.status(401).json({ message: 'Unauthorized: User ID missing.' });
     }
 
@@ -91,9 +89,102 @@ router.post('/', auth, multer.any(), async (req, res, next) => {
     const saved = await post.save();
     res.status(201).json(saved);
   } catch (err) {
-    console.error("Error in postRoutes.js:", err); // Log the error for debugging
+    console.error("Error in postRoutes.js (Create Post):", err); // Log the error for debugging
     next(err); // Pass error to Express's error handling middleware
   }
 });
+
+// --- New Endpoints for Like/Dislike System ---
+
+/**
+ * @route POST /api/posts/:id/like
+ * @desc Like or Unlike a post
+ * @access Private
+ */
+router.post('/:id/like', auth, async (req, res, next) => {
+  try {
+    const postId = req.params.id;
+    const userId = req.user.id; // User ID from authenticated token
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found.' });
+    }
+
+    const isLiked = post.likes.includes(userId);
+    const isDisliked = post.dislikes.includes(userId);
+
+    if (isLiked) {
+      // If already liked, unlike it (remove user ID from likes array)
+      post.likes = post.likes.filter(id => id.toString() !== userId.toString());
+    } else {
+      // If not liked, add user ID to likes array
+      post.likes.push(userId);
+      // If user had previously disliked, remove their ID from dislikes array
+      if (isDisliked) {
+        post.dislikes = post.dislikes.filter(id => id.toString() !== userId.toString());
+      }
+    }
+
+    await post.save();
+    res.status(200).json({
+      message: isLiked ? 'Post unliked successfully.' : 'Post liked successfully.',
+      likesCount: post.likes.length,
+      dislikesCount: post.dislikes.length,
+      isLikedByUser: post.likes.includes(userId),
+      isDislikedByUser: post.dislikes.includes(userId)
+    });
+
+  } catch (err) {
+    console.error('Error liking post:', err);
+    next(err);
+  }
+});
+
+/**
+ * @route POST /api/posts/:id/dislike
+ * @desc Dislike or Undislike a post
+ * @access Private
+ */
+router.post('/:id/dislike', auth, async (req, res, next) => {
+  try {
+    const postId = req.params.id;
+    const userId = req.user.id; // User ID from authenticated token
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found.' });
+    }
+
+    const isDisliked = post.dislikes.includes(userId);
+    const isLiked = post.likes.includes(userId);
+
+    if (isDisliked) {
+      // If already disliked, undislike it (remove user ID from dislikes array)
+      post.dislikes = post.dislikes.filter(id => id.toString() !== userId.toString());
+    } else {
+      // If not disliked, add user ID to dislikes array
+      post.dislikes.push(userId);
+      // If user had previously liked, remove their ID from likes array
+      if (isLiked) {
+        post.likes = post.likes.filter(id => id.toString() !== userId.toString());
+      }
+    }
+
+    await post.save();
+    res.status(200).json({
+      message: isDisliked ? 'Post undisliked successfully.' : 'Post disliked successfully.',
+      likesCount: post.likes.length,
+      dislikesCount: post.dislikes.length,
+      isLikedByUser: post.likes.includes(userId),
+      isDislikedByUser: post.dislikes.includes(userId)
+    });
+
+  } catch (err) {
+    console.error('Error disliking post:', err);
+    next(err);
+  }
+});
+
 
 module.exports = router;

@@ -46,26 +46,10 @@ const LessonSchema = new mongoose.Schema({
     min: 1, // Example: Assuming grades start from 1
     max: 12 // Example: Assuming grades go up to 12
   },
-  viewsCount: {
-    type: Number,
-    default: 0,
-    min: 0
-  },
-  likesCount: {
-    type: Number,
-    default: 0,
-    min: 0
-  },
-  dislikesCount: {
-    type: Number,
-    default: 0,
-    min: 0
-  },
-   CommentCount: {
-    type: Number,
-    default: 0,
-    min: 0
-  }
+  likes:          [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Array of User IDs who liked the post
+    dislikes:       [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Array of User IDs who disliked the post
+    viewsCount:     { type: Number, default: 0 },                          // Total number of times the post has been viewed
+    commentsCount:  { type: Number, default: 0 }   
 }, {
   // Mongoose automatically adds `createdAt` and `updatedAt` fields
   timestamps: true
