@@ -3,94 +3,117 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('../config/multerConfig');
-const Post = require('../models/Post'); // Assuming Post model has likes and dislikes arrays
-const auth = require('../middleware/auth'); // Auth middleware to ensure user is logged in
-const path = require('path'); // Import path module
+const Post = require('../models/Post'); // Ensure your Post model is correctly imported
+const Comment = require('../models/Comment'); // <-- NEW: Import Comment model
+const auth = require('../middleware/auth');
+const path = require('path');
+const fs = require('fs');
+const { nanoid } = require('nanoid');
+const ffmpeg = require('fluent-ffmpeg');
+const mongoose = require('mongoose'); // <-- ADDED: Import Mongoose for ObjectId validation
 
-// Define the base uploads directory. This must match your multerConfig's base.
-// It's crucial this path calculation is consistent across your backend.
-const UPLOADS_BASE_DIR = path.join(__dirname, '..', '..', 'uploads');
+// Configure ffmpeg paths (adjust according to your environment)
+ffmpeg.setFfmpegPath('C:\\ffmpeg\\bin\\ffmpeg.exe');
+ffmpeg.setFfprobePath('C:\\ffmpeg\\bin\\ffprobe.exe');
 
-// Helper function to convert absolute path to relative, Unix-like path
+// Helper function to convert paths to relative Unix format
 function toRelativeUnixPath(absolutePath) {
   if (!absolutePath) return null;
-
-  // Normalize path to use forward slashes (works on both Windows/Unix)
   const normalizedPath = absolutePath.replace(/\\/g, '/');
-
-  // Find the index of the 'uploads/' segment.
-  // We need to ensure we only capture the part *after* 'uploads/'.
   const uploadsIndex = normalizedPath.indexOf('/uploads/');
-
-  if (uploadsIndex !== -1) {
-    // Return the segment starting from 'uploads/'
-    return normalizedPath.substring(uploadsIndex + 1); // +1 to remove leading '/'
-  }
-  // If 'uploads/' is not found (e.g., if path is already relative or unexpected format)
-  // try to make it relative to UPLOADS_BASE_DIR
-  try {
-      const relativePath = path.relative(UPLOADS_BASE_DIR, absolutePath);
-      // Ensure it starts with 'uploads/' and uses forward slashes
-      return path.join('uploads', relativePath).replace(/\\/g, '/');
-  } catch (e) {
-    console.warn("Could not determine relative path for:", absolutePath, e);
-    return normalizedPath; // Fallback to normalized absolute path if relative conversion fails
-  }
+  return uploadsIndex !== -1
+    ? normalizedPath.substring(uploadsIndex + 1)
+    : normalizedPath;
 }
 
-
-// Create Post
+// Create Post with video and thumbnail support
 router.post('/', auth, multer.any(), async (req, res, next) => {
   try {
-    // Destructure the fields you expect:
-    const { title, description, teachSubjects, learnSubjects, grade } = req.body;
-
     // Validate required fields
+    const { title, description, teachSubjects, learnSubjects, grade } = req.body;
     if (!title?.trim() || !description?.trim()) {
       return res.status(400).json({ message: 'Title and description are required.' });
     }
-    if (typeof grade === 'undefined' || grade === null) { // Added null check
+    if (typeof grade === 'undefined' || grade === null) {
       return res.status(400).json({ message: 'Grade is required.' });
     }
+
     const gradeInt = parseInt(grade, 10);
     if (isNaN(gradeInt)) {
       return res.status(400).json({ message: 'Grade must be a number.' });
     }
 
-    // Confirm authenticated user
+    // Check user authentication and validate userId
     const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized: User ID missing.' });
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) { // <-- MODIFIED: Added validation
+      console.error('Unauthorized: Invalid User ID received:', userId);
+      return res.status(401).json({ message: 'Unauthorized: Invalid User ID.' });
     }
 
-    // Build the Post document
-    const post = new Post({
-      title,
-      description,
-      // Parse JSON strings for arrays, default to empty array
-      teachSubjects: JSON.parse(teachSubjects || '[]'),
-      learnSubjects: JSON.parse(learnSubjects || '[]'),
-      grade: gradeInt,
-      user: userId, // owner from JWT
-    });
-
-    // Attach any uploaded image/video paths after converting to relative Unix-like paths
+    // Process uploaded files
     const imageFile = req.files?.find(f => f.fieldname === 'image');
     const videoFile = req.files?.find(f => f.fieldname === 'video');
 
-    if (imageFile) {
-      post.image = toRelativeUnixPath(imageFile.path);
-    }
+    let thumbnailPath = null;
+
+    // Generate thumbnail if video was uploaded
     if (videoFile) {
-      post.video = toRelativeUnixPath(videoFile.path);
+      const videoFilePath = videoFile.path;
+      const videoFileName = path.parse(videoFile.filename).name;
+      const videoDirectory = path.dirname(videoFilePath);
+      const thumbnailDir = path.join(videoDirectory, 'thumbnails');
+      const thumbnailFileName = `${videoFileName}-thumb.jpg`;
+      const fullThumbnailPath = path.join(thumbnailDir, thumbnailFileName);
+
+      // Create thumbnail directory if it doesn't exist
+      if (!fs.existsSync(thumbnailDir)) {
+        fs.mkdirSync(thumbnailDir, { recursive: true });
+      }
+
+      // Generate thumbnail using ffmpeg
+      try {
+        await new Promise((resolve) => {
+          ffmpeg(videoFilePath)
+            .screenshots({
+              timestamps: ['00:00:1.000'],
+              filename: thumbnailFileName,
+              folder: thumbnailDir,
+              size: '320x240'
+            })
+            .on('end', () => {
+              thumbnailPath = toRelativeUnixPath(fullThumbnailPath);
+              resolve();
+            })
+            .on('error', (err) => {
+              console.error('Thumbnail generation error:', err);
+              resolve();
+            });
+        });
+      } catch (err) {
+        console.error('Error in thumbnail generation:', err);
+      }
     }
 
-    // Save and return
-    const saved = await post.save();
-    res.status(201).json(saved);
+    // Create new post
+    const post = new Post({
+      title,
+      description,
+      teachSubjects: JSON.parse(teachSubjects || '[]'),
+      learnSubjects: JSON.parse(learnSubjects || '[]'),
+      grade: gradeInt,
+      user: userId,
+      image: imageFile ? toRelativeUnixPath(imageFile.path) : null,
+      video: videoFile ? toRelativeUnixPath(videoFile.path) : null,
+      thumbnail: thumbnailPath,
+      viewsCount: 0 // Initialize viewsCount for new posts
+    });
+
+    const savedPost = await post.save();
+    res.status(201).json(savedPost);
+
   } catch (err) {
-    console.error("Error in postRoutes.js (Create Post):", err); // Log the error for debugging
-    next(err); // Pass error to Express's error handling middleware
+    console.error("Error creating post:", err);
+    next(err);
   }
 });
 
@@ -105,6 +128,12 @@ router.post('/:id/like', auth, async (req, res, next) => {
   try {
     const postId = req.params.id;
     const userId = req.user.id; // User ID from authenticated token
+
+    // Validate userId here too, as it's used in includes and push operations
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) { // <-- MODIFIED: Added validation
+      console.error('Invalid User ID received for like:', userId);
+      return res.status(401).json({ message: 'Unauthorized: Invalid User ID.' });
+    }
 
     const post = await Post.findById(postId);
     if (!post) {
@@ -151,6 +180,12 @@ router.post('/:id/dislike', auth, async (req, res, next) => {
     const postId = req.params.id;
     const userId = req.user.id; // User ID from authenticated token
 
+    // Validate userId here too
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) { // <-- MODIFIED: Added validation
+      console.error('Invalid User ID received for dislike:', userId);
+      return res.status(401).json({ message: 'Unauthorized: Invalid User ID.' });
+    }
+
     const post = await Post.findById(postId);
     if (!post) {
       return res.status(404).json({ message: 'Post not found.' });
@@ -186,5 +221,74 @@ router.post('/:id/dislike', auth, async (req, res, next) => {
   }
 });
 
+// --- NEW: Route to Increment Post Views ---
+/**
+ * @route POST /api/posts/:id/view
+ * @desc Increment a post's view count
+ * @access Public (no auth middleware, but you can add it if you want to track logged-in users only)
+ */
+router.post('/:id/view', async (req, res, next) => {
+  try {
+    const postId = req.params.id;
+    const post = await Post.findByIdAndUpdate(
+      postId,
+      { $inc: { viewsCount: 1 } }, // Increment viewsCount by 1
+      { new: true, runValidators: true } // Return the updated document and run schema validators
+    );
+
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found.' });
+    }
+
+    res.status(200).json({ message: 'View count updated.', viewsCount: post.viewsCount });
+  } catch (err) {
+    console.error('Error incrementing view count:', err);
+    next(err);
+  }
+});
+
+// --- NEW/MODIFIED: Get All Posts (with commentCount and viewsCount) ---
+/**
+ * @route GET /api/posts
+ * @desc Get all posts with user info, like/dislike counts, views, and comment counts
+ * @access Public
+ *
+ * This route is conceptual if you didn't have one. If you have an existing one,
+ * integrate the population and comment counting logic into it.
+ */
+
+
+// --- NEW/MODIFIED: Get Single Post by ID (with commentCount and viewsCount) ---
+/**
+ * @route GET /api/posts/:id
+ * @desc Get a single post by ID with user info, like/dislike counts, views, and comment counts
+ * @access Public
+ *
+ * This route is conceptual if you didn't have one. If you have an existing one,
+ * integrate the population and comment counting logic into it.
+ */
+router.get('/:id', async (req, res, next) => {
+  try {
+    const postId = req.params.id;
+    const post = await Post.findById(postId).populate('user', 'username avatar'); // Populate user details
+
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found.' });
+    }
+
+    const commentCount = await Comment.countDocuments({ post: post._id }); // Count comments for this post
+
+    res.status(200).json({
+      ...post.toObject(),
+      commentCount,
+      viewsCount: post.viewsCount,
+      likesCount: post.likes.length,
+      dislikesCount: post.dislikes.length,
+    });
+  } catch (err) {
+    console.error('Error fetching single post:', err);
+    next(err);
+  }
+});
 
 module.exports = router;

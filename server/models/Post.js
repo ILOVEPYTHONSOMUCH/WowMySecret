@@ -15,7 +15,8 @@ const PostSchema = new mongoose.Schema({
   likes:          [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Array of User IDs who liked the post
   dislikes:       [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Array of User IDs who disliked the post
   viewsCount:     { type: Number, default: 0 },                          // Total number of times the post has been viewed
-  commentsCount:  { type: Number, default: 0 }                           // Total number of comments on the post
+  commentsCount:  { type: Number, default: 0 },
+  thumbnail: { type: String }                        // Total number of comments on the post
 });
 
 module.exports = mongoose.models.Post || mongoose.model('Post', PostSchema);

@@ -61,7 +61,7 @@ router.get('/:type', auth, async (req, res, next) => {
         let Model;
         let selectFields = '';
         let populateFields = '';
-
+       
         if (type === 'lessons') {
             Model = Lesson;
             selectFields = 'title subject description video thumbnailPath grade viewsCount likesCount dislikesCount CommentCount';
@@ -71,7 +71,7 @@ router.get('/:type', auth, async (req, res, next) => {
             // No specific selectFields or populateFields defined for posts in original, keeping it as is.
         } else if (type === 'quizzes') {
             Model = Quiz;
-            selectFields = 'quizId title subject grade questions coverImage attemptsCount user';
+            selectFields = 'quizId title subject grade questions coverImage attemptsCount userh';
             populateFields = 'user';
         } else if (type === 'users') { // <-- ADDED: User Model
             Model = User;
