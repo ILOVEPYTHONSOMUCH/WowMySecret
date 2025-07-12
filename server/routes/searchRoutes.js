@@ -64,14 +64,14 @@ router.get('/:type', auth, async (req, res, next) => {
        
         if (type === 'lessons') {
             Model = Lesson;
-            selectFields = 'title subject description video thumbnailPath grade viewsCount likesCount dislikesCount CommentCount';
+            selectFields = 'title subject description video thumbnailPath grade viewsCount likes dislikes commentsCount relatedQuizzes';
             populateFields = 'user';
         } else if (type === 'posts') {
             Model = Post;
             // No specific selectFields or populateFields defined for posts in original, keeping it as is.
         } else if (type === 'quizzes') {
             Model = Quiz;
-            selectFields = 'quizId title subject grade questions coverImage attemptsCount userh';
+            selectFields = 'quizId title subject grade questions coverImage attemptsCount user';
             populateFields = 'user';
         } else if (type === 'users') { // <-- ADDED: User Model
             Model = User;
