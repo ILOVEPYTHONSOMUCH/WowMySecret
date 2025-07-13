@@ -64,7 +64,7 @@ router.get('/:type', auth, async (req, res, next) => {
        
         if (type === 'lessons') {
             Model = Lesson;
-            selectFields = 'title subject description video thumbnailPath grade viewsCount likes dislikes commentsCount relatedQuizzes';
+            selectFields = 'title subject description video thumbnailPath grade viewsCount likes dislikes commentsCount relatedQuizzes createdAt';
             populateFields = 'user';
         } else if (type === 'posts') {
             Model = Post;
