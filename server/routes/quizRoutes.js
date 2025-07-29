@@ -74,10 +74,15 @@ router.post(
         viewsCount: 0,
         commentsCount: 0,
       });
-
+      const userId = req.user?.id;
       // Save the quiz to the database
       await quiz.save();
-
+      await User.findByIdAndUpdate(
+        userId,
+        { $inc: { totalQuizzes: 1 } }, // Increment totalPosts by 1
+        { new: true } // Return the updated document (optional)
+      );
+  
       res.status(201).json(quiz); // Respond with the created quiz object
     } catch (err) {
       console.error('Error in quiz creation:', err.message);

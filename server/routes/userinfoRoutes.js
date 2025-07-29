@@ -33,7 +33,8 @@ router.get('/:id', async (req, res, next) => {
       note: user.note || 'nothing',
       totalScore: user.totalScore,
       totalPosts: user.totalPosts,
-      totalQuizzes: user.totalQuizzes
+      totalQuizzes: user.totalQuizzes,
+      totalLessons: user.totalLessons
     };
 
     res.json(response);

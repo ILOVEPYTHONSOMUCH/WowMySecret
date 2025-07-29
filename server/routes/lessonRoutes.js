@@ -4,7 +4,7 @@ const auth = require('../middleware/auth'); // Path to your authentication middl
 const multer = require('../config/multerConfig'); // Path to your Multer configuration
 const { nanoid } = require('nanoid');
 const Lesson = require('../models/Lesson'); // Path to your Lesson Mongoose model
-
+const User = require('../models/User');
 // New imports required for thumbnail generation
 const ffmpeg = require('fluent-ffmpeg'); // For interacting with ffmpeg
 const path = require('path');           // For handling file paths
@@ -116,7 +116,12 @@ router.post('/', auth, multer.single('video'), async (req, res, next) => {
     });
 
     await lesson.save(); // Save the new lesson to MongoDB
-
+    const userId = req.user?.id;
+    await User.findByIdAndUpdate(
+          userId,
+          { $inc: { totalLessons: 1 } }, // Increment totalPosts by 1
+          { new: true } // Return the updated document (optional)
+        );
     // 5. Send success response
     res.status(201).json({ message: 'Lesson created successfully', lesson });
 

@@ -10,6 +10,7 @@ const path = require('path');
 const fs = require('fs');
 const { nanoid } = require('nanoid');
 const ffmpeg = require('fluent-ffmpeg');
+const User = require('../models/User');
 const mongoose = require('mongoose'); // <-- ADDED: Import Mongoose for ObjectId validation
 
 // Configure ffmpeg paths (adjust according to your environment)
@@ -45,6 +46,7 @@ router.post('/', auth, multer.any(), async (req, res, next) => {
 
     // Check user authentication and validate userId
     const userId = req.user?.id;
+    console.log(req.user);
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) { // <-- MODIFIED: Added validation
       console.error('Unauthorized: Invalid User ID received:', userId);
       return res.status(401).json({ message: 'Unauthorized: Invalid User ID.' });
@@ -109,8 +111,13 @@ router.post('/', auth, multer.any(), async (req, res, next) => {
     });
 
     const savedPost = await post.save();
+    await User.findByIdAndUpdate(
+      userId,
+      { $inc: { totalPosts: 1 } }, // Increment totalPosts by 1
+      { new: true } // Return the updated document (optional)
+    );
     res.status(201).json(savedPost);
-
+ 
   } catch (err) {
     console.error("Error creating post:", err);
     next(err);
@@ -128,7 +135,7 @@ router.post('/:id/like', auth, async (req, res, next) => {
   try {
     const postId = req.params.id;
     const userId = req.user.id; // User ID from authenticated token
-
+    
     // Validate userId here too, as it's used in includes and push operations
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) { // <-- MODIFIED: Added validation
       console.error('Invalid User ID received for like:', userId);

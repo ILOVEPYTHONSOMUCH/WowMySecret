@@ -15,6 +15,7 @@ const searchRoutres = require('./server/routes/searchRoutes')
 const fileRoute = require('./server/routes/fileRoute');
 const userinfoRoute = require('./server/routes/userinfoRoutes');
 const commentRoutes = require('./server/routes/commentRoutes');
+const openRoutes = require('./server/routes/openRoutes');
 dotenv.config();
 const app = express();
 dbConnect();
@@ -33,6 +34,7 @@ app.use('/api/search',searchRoutres);
 app.use('/api/file', fileRoute);
 app.use('/api/users', userinfoRoute);
 app.use('/api/comments', commentRoutes);
+app.use('/api/open', openRoutes);
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 app.use(errorHandler);
 const PORT = process.env.PORT || 6000;
