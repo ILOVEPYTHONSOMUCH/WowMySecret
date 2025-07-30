@@ -46,7 +46,8 @@ router.get('/:type', auth, async (req, res, next) => {
             } else if (type === 'quizzes') {
                 filter.$or = [
                     { title: re },
-                    { subject: re } // Assuming quizzes have a 'subject' field
+                    { subject: re }, // Assuming quizzes have a 'subject' field'
+                    { quizId: re }
                 ];
             } else if (type === 'users') { // <-- ADDED: Keyword filter for users
                 filter.$or = [
